@@ -55,15 +55,6 @@ export default function LoginComponent() {
           <LoginAuth />
         </form>
 
-        {/* Social Login */}
-        <div className="text-center text-gray-500">Or Sign in with</div>
-        <div className="flex justify-center gap-4">
-          <Button variant="outline" className="w-28">
-            <FcGoogle className="mr-2" /> Google
-          </Button>
-
-        </div>
-
         <div className="text-center text-sm text-gray-600">
           Dont have an account?{' '}
           <a href="/sign-up" className="text-blue-500 font-medium">
