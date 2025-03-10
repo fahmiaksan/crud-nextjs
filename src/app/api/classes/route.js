@@ -33,7 +33,6 @@ export async function POST(req) {
       );
     }
 
-    // ✅ Data sudah valid, buat class di database
     const newClass = await prisma.class.create({
       data: { name: validation.data.name },
     });
