@@ -39,3 +39,7 @@ npm run dev
 ```
 
 Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+
+## Login
+
+You can access the admin panel before that you log in first, you can see the email and password to log in in the file /prisma/seed.js
