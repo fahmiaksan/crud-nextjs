@@ -63,7 +63,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       }
     }) {
       const isLoggedIn = !!auth?.user;
-      const ProtectedRoutes = ['/dashboard', '/dashboard/student', '/dashboard/teacher', '/dashboard/subject'];
+      const ProtectedRoutes = ["/dashboard", "/dashboard/student", "/dashboard/teacher", "/dashboard/class", "/dashboard/subject"];
       if (!isLoggedIn && ProtectedRoutes.includes(nextUrl.pathname)) {
         return Response.redirect(new URL('/login', nextUrl));
       }
