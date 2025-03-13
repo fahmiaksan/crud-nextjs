@@ -7,7 +7,6 @@ import { useFormStatus } from "react-dom";
 export default function RegisterComponent() {
   const [state, formAction] = useActionState(signUpCredentials, null);
   const { pending } = useFormStatus();
-  console.log(pending);
   return (
     <div className="flex min-h-screen items-center justify-center bg-gray-800">
       <Card className="p-6 w-full max-w-md space-y-4">
@@ -53,7 +52,7 @@ export default function RegisterComponent() {
           <Button
             type="submit"
             disabled={pending}
-            className={`w-full bg-blue-500 text-white py-3 rounded-lg hover:bg-blue-600 `}
+            className={`w-full ${pending ? 'cursor-wait' : 'cursor-pointer'} bg-blue-500 text-white py-3 rounded-lg hover:bg-blue-600 `}
           >
             {
               pending ? (
