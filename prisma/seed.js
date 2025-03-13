@@ -1,5 +1,5 @@
-import { PrismaClient } from "@prisma/client";
 import bcrypt from "bcryptjs";
+import { PrismaClient } from "@prisma/client";
 
 const prisma = new PrismaClient();
 
@@ -17,7 +17,6 @@ async function main() {
       fullname: "John Doe",
       email: "john@example.com",
       password: await bcrypt.hash("password123", 10),
-      classId: classA.id,
     },
   });
 
@@ -26,7 +25,6 @@ async function main() {
       fullname: "Jane Smith",
       email: "jane@example.com",
       password: await bcrypt.hash("password123", 10),
-      classId: classB.id,
     },
   });
 
@@ -35,22 +33,61 @@ async function main() {
       fullname: "Michael Johnson",
       email: "michael@example.com",
       password: await bcrypt.hash("password123", 10),
-      classId: classC.id,
     },
   });
 
-  // 🔹 3. Tambah Data Mata Pelajaran (Subject)
-  await prisma.subject.createMany({
-    data: [
-      { name: "Mathematics", teacherId: teacher1.id },
-      { name: "Science", teacherId: teacher2.id },
-      { name: "English", teacherId: teacher1.id },
-      { name: "History", teacherId: teacher2.id },
-      { name: "Computer Science", teacherId: teacher3.id },
-    ],
+  // 🔹 3. Hubungkan Guru dengan Kelas (Many-to-Many)
+  await prisma.class.update({
+    where: { id: classA.id },
+    data: {
+      teachers: { connect: [{ id: teacher1.id }, { id: teacher2.id }] },
+    },
   });
 
-  // 🔹 4. Tambah Data Siswa (Student)
+  await prisma.class.update({
+    where: { id: classB.id },
+    data: {
+      teachers: { connect: [{ id: teacher2.id }, { id: teacher3.id }] },
+    },
+  });
+
+  await prisma.class.update({
+    where: { id: classC.id },
+    data: {
+      teachers: { connect: [{ id: teacher1.id }, { id: teacher3.id }] },
+    },
+  });
+
+  // 🔹 4. Tambah Data Mata Pelajaran (Subjects)
+  const math = await prisma.subject.create({ data: { name: "Mathematics" } });
+  const science = await prisma.subject.create({ data: { name: "Science" } });
+  const english = await prisma.subject.create({ data: { name: "English" } });
+  const history = await prisma.subject.create({ data: { name: "History" } });
+  const cs = await prisma.subject.create({ data: { name: "Computer Science" } });
+
+  // 🔹 5. Hubungkan Guru dengan Mata Pelajaran (Many-to-Many)
+  await prisma.teacher.update({
+    where: { id: teacher1.id },
+    data: {
+      subjects: { connect: [{ id: math.id }, { id: english.id }] },
+    },
+  });
+
+  await prisma.teacher.update({
+    where: { id: teacher2.id },
+    data: {
+      subjects: { connect: [{ id: science.id }, { id: history.id }] },
+    },
+  });
+
+  await prisma.teacher.update({
+    where: { id: teacher3.id },
+    data: {
+      subjects: { connect: [{ id: cs.id }] },
+    },
+  });
+
+  // 🔹 6. Tambah Data Siswa (Student)
   await prisma.student.createMany({
     data: [
       { fullname: "Alice Johnson", email: "alice@example.com", student_id_number: "S001", classId: classA.id },
@@ -58,17 +95,6 @@ async function main() {
       { fullname: "Charlie Brown", email: "charlie@example.com", student_id_number: "S003", classId: classA.id },
       { fullname: "David Lee", email: "david@example.com", student_id_number: "S004", classId: classC.id },
       { fullname: "Emma Watson", email: "emma@example.com", student_id_number: "S005", classId: classC.id },
-    ],
-  });
-
-  // 🔹 5. Tambah Data Absensi (Attendance)
-  await prisma.attendance.createMany({
-    data: [
-      { studentId: 1, date: new Date("2025-03-01"), status: "Present" },
-      { studentId: 2, date: new Date("2025-03-01"), status: "Absent" },
-      { studentId: 3, date: new Date("2025-03-01"), status: "Late" },
-      { studentId: 4, date: new Date("2025-03-02"), status: "Present" },
-      { studentId: 5, date: new Date("2025-03-02"), status: "Present" },
     ],
   });
 
