@@ -36,7 +36,8 @@ export default function Dashboard() {
       }
     };
     fetchDashboardData();
-  }, [status, setTeachers, setClasses, setStudents, setSubjects]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [status]);
 
   const dataStats = [
     { title: "Subjects", count: subjects.length, color: "bg-blue-500" },
