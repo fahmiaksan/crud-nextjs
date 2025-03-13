@@ -13,6 +13,9 @@ export const saveSubject = async (isEditMode, formData) => {
   try {
     const method = isEditMode ? "PUT" : "POST";
     const url = isEditMode ? `/api/subjects/${formData.id}` : "/api/subjects";
+    if (formData.teacherId[0] === 0) {
+      formData.teacherId = [];
+    }
     const res = await fetch(url, {
       method,
       headers: { "Content-Type": "application/json" },

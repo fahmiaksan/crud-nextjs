@@ -13,6 +13,12 @@ export const fetchTeachersData = async () => {
 export const saveTeacherData = async (isEditMode, formData) => {
   const url = isEditMode ? `/api/teachers/${formData.id}` : "/api/teachers";
   const method = isEditMode ? "PUT" : "POST";
+  if (formData.classId[0] === 0) {
+    formData.classId = [];
+  }
+  if (formData.subjectId[0] === 0) {
+    formData.subjectId = [];
+  }
   try {
     const res = await fetch(url, {
       method,

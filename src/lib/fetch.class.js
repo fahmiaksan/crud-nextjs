@@ -13,6 +13,9 @@ export const fetchClasses = async () => {
 export const saveClass = async (isEditMode, data) => {
   const method = isEditMode ? "PUT" : "POST";
   const url = isEditMode ? `/api/classes/${data.id}` : "/api/classes";
+  if (data.teacherId[0] === 0) {
+    data.teacherId = [];
+  }
   try {
     const res = await fetch(url, {
       method,
@@ -35,7 +38,7 @@ export const saveClass = async (isEditMode, data) => {
 };
 
 
-export const deleteClass = async (id) => {
+export const deleteClassData = async (id) => {
   try {
     const res = await fetch(`/api/classes/${id}`, { method: "DELETE", cache: "no-store" },);
     if (!res.ok) return { success: false, message: "Failed to delete class", data: [] };
