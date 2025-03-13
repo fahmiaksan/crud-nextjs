@@ -1,10 +1,12 @@
 "use client";
 import { useEffect, useState } from "react";
-import { Card, Table, Button, Input, Modal, Spinner, TableColumn, TableRow, TableBody, TableHeader, TableCell, ModalContent, ModalBody, form } from "@heroui/react";
+import { Card, Table, Button, Input, Modal, Spinner, TableColumn, TableRow, TableBody, TableHeader, TableCell, ModalContent, ModalBody, form, Select, SelectItem } from "@heroui/react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import useClassStore from "@/store/useClassStore";
-import { saveClass, fetchClasses } from "@/lib/fetch.class";
+import { saveClass, deleteClassData, fetchClasses } from "@/lib/fetch.class";
+import useTeacherStore from "@/store/useTeacherStore";
+import { fetchTeachersData } from "@/lib/fetch.teacher";
 
 export default function ClassComponent() {
   const { data: session, status } = useSession();
@@ -13,19 +15,13 @@ export default function ClassComponent() {
   const { classes, setClasses, addClass, updateClass, deleteClass } = useClassStore();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
-  const [formData, setFormData] = useState([]);
+  const [formData, setFormData] = useState({ id: "", name: "", teacherId: "", teachers: [] });
   const [loading, setLoading] = useState(true);
   const [sortColumn, setSortColumn] = useState(null);
   const [sortOrder, setSortOrder] = useState("asc");
+  const { teachers, setTeachers } = useTeacherStore();
 
   useEffect(() => {
-    // Jika data sudah ada, hentikan loading
-    if (classes.length > 0) {
-      setLoading(false);
-      return;
-    }
-
-    // Jika masih loading session, biarkan tetap loading
     if (status === "loading") {
       setLoading(true);
       return;
@@ -39,21 +35,23 @@ export default function ClassComponent() {
 
     async function fetchData() {
       try {
-        setLoading(true); // Set loading sebelum fetch data
+        setLoading(true);
 
-        const dataClass = await fetchClasses();
-
-        // Pastikan data yang diterima adalah array
-        if (!Array.isArray(dataClass.data)) {
-          console.error("Data is not an array:", dataClass);
+        const dataClasses = await fetchClasses();
+        const dataTeachers = await fetchTeachersData();
+        if (!Array.isArray(dataClasses.data) && !Array.isArray(dataTeachers.data)) {
+          console.error("Data is not an array:", dataClasses, dataTeachers);
           setClasses([]);
+          setTeachers([]);
         } else {
-          setClasses(dataClass.data);
+          setClasses(dataClasses.data);
+          setTeachers(dataTeachers.data);
         }
 
       } catch (error) {
         console.error("Failed to fetch data:", error);
         setClasses([]);
+        setTeachers([]);
       } finally {
         setLoading(false); // Hentikan loading setelah selesai fetch
       }
@@ -61,18 +59,36 @@ export default function ClassComponent() {
 
     fetchData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [session, status]);
+  }, [status]);
 
 
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
+  const handleSelectChange = (selectedValues) => {
+    setFormData((prev) => ({
+      ...prev,
+      teacherId: selectedValues.target.value
+    }));
+  };
+
   const handleSubmit = async (e) => {
-    setIsSubmitting(true);
     e.preventDefault();
+    setIsSubmitting(true);
+    let teacherId;
+    if (formData.teacherId.includes(",")) {
+      teacherId = formData.teacherId.split(",").map(id => Number(id.trim()));
+    } else {
+      teacherId = [Number(formData.teacherId)];
+    }
     try {
-      const res = await saveClass(isEditMode, formData);
+      const res = await saveClass(isEditMode, {
+        id: formData.id ? formData.id : null,
+        name: formData.name,
+        teacherId: teacherId ? teacherId : [],
+      });
+
       if (isEditMode) {
         updateClass(res.data);
       } else {
@@ -80,19 +96,18 @@ export default function ClassComponent() {
       }
     } catch (error) {
       alert("Failed to save class, rolling back!");
-      const res = await fetchClasses();
-      setClasses(res.data);
+      const refreshedClasses = await fetchClasses();
+      setClasses(refreshedClasses.data);
     } finally {
       setIsSubmitting(false);
       setIsModalOpen(false);
     }
   };
-
   const handleDelete = async (id) => {
     if (!confirm("Are you sure you want to delete this class?")) return;
     deleteClass(id);
     try {
-      await deleteClass(id);
+      await deleteClassData(id);
 
     } catch (error) {
       console.error(error);
@@ -103,7 +118,10 @@ export default function ClassComponent() {
 
   const handleEdit = (cls) => {
     setIsEditMode(true);
-    setFormData(cls);
+    setFormData({
+      ...cls,
+      teacherId: cls?.teachers?.map((teacher) => teacher.id).join(",")
+    });
     setIsModalOpen(true);
   };
 
@@ -145,8 +163,8 @@ export default function ClassComponent() {
   return (
     <div className="p-6">
       <h1 className="text-2xl font-bold mb-4">Class Management</h1>
-      <Button onPress={() => { setIsEditMode(false); setIsModalOpen(true); }} color="primary" className="mb-4">+ Add Class</Button>
-      <Card>
+      <Button onPress={() => { setIsEditMode(false); setIsModalOpen(true); setFormData({ name: "", teacherId: "" }) }} color="primary" className="mb-4">+ Add Class</Button>
+      <Card className="p-4">
         {
           loading ? (
             <Spinner />
@@ -174,7 +192,6 @@ export default function ClassComponent() {
                     <TableCell>{cls.name}</TableCell>
                     <TableCell>{cls._count ? cls._count.students : 0} {cls.count > 1 ? "students" : "student"}</TableCell>
 
-                    {/* Teacher Column with Improved UI */}
                     <TableCell>
                       {cls.teachers?.length > 0 ? (
                         <div className="flex flex-wrap gap-1">
@@ -212,19 +229,31 @@ export default function ClassComponent() {
             </Table>
           )
         }
-
-
       </Card>
 
-
-      {/* Modal untuk Tambah/Edit Class */}
-      <Modal backdrop="blur" isOpen={isModalOpen} onClose={() => { setIsModalOpen(false), setFormData({ id: null, name: "" }) }} title={isEditMode ? "Edit Class" : "Add Class"}>
+      <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title={isEditMode ? "Edit Class" : "Add Class"}>
         <ModalContent>
           <ModalBody>
             <form onSubmit={handleSubmit} className="p-4 space-y-4">
-              <Input label="Class Name" type="text" name="name" value={formData.name} onChange={handleChange} required />
+              <Input isRequired label="Class Name" type="text" name="name" value={formData.name} onChange={handleChange} required />
+              <Select
+                isRequired
+                selectionMode="multiple"
+                label="Teacher"
+                value={isEditMode && [formData.teachers.map((teacher) => String(teacher.id))]}
+                defaultSelectedKeys={isEditMode && formData.teachers.map((teacher) => String(teacher.id))}
+                onChange={handleSelectChange}
+                name="teacherId"
+              >
+                {teachers.map((teacher) => (
+                  <SelectItem key={teacher.id} value={String(teacher.id)}>
+                    {teacher.fullname}
+                  </SelectItem>
+                ))}
+              </Select>
               <Button type="submit" color="success" className="w-full">
-                {isSubmitting ? <Spinner /> : isEditMode ? "Update class" : "Add class"}</Button>
+                {isSubmitting ? <Spinner /> : isEditMode ? "Update Class" : "Add Class"}
+              </Button>
             </form>
           </ModalBody>
         </ModalContent>
