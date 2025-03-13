@@ -23,9 +23,7 @@ You need to create database SQL, then migrate database:
 ```bash
 npx prisma migrate dev
 ```
-
-*check database just to make sure that the seed data is entered*
-If there is no seed data in your database, please run seeding first
+Then seed database
 
 ```bash
 npm run prisma:seed
