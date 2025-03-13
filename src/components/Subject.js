@@ -17,14 +17,10 @@ export default function SubjectComponents() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
   const [loadingSubmit, setLoadingSubmit] = useState(false);
-  const [formData, setFormData] = useState([]);
-  const [sortConfig, setSortConfig] = useState({ key: "name", direction: "asc" }); // ✅ Sorting State
+  const [formData, setFormData] = useState({ id: "", name: "", teacherId: "", teachers: [] });
+  const [sortConfig, setSortConfig] = useState({ key: "name", direction: "asc" });
 
   useEffect(() => {
-    if (subjects.length > 0 && teachers.length > 0) {
-      setLoading(false);
-      return;
-    }
 
     if (status === "loading") {
       setLoading(true);
@@ -52,16 +48,22 @@ export default function SubjectComponents() {
 
     fetchData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [session, status]);
+  }, [status]);
 
   const handleChange = (e) => setFormData({ ...formData, [e.target.name]: e.target.value });
+
+  const handleSelectChange = (selectedValues) => {
+    setFormData((prev) => ({
+      ...prev,
+      teacherId: selectedValues.target.value
+    }));
+  };
 
   const handleEdit = (subject) => {
     setIsEditMode(true);
     setFormData({
-      id: subject.id,
-      name: subject.name,
-      teacherId: subject.teacherId,
+      ...subject,
+      teacherId: subject?.teachers?.map((teacher) => teacher.id).join(",")
     });
     setIsModalOpen(true);
   };
@@ -69,8 +71,18 @@ export default function SubjectComponents() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoadingSubmit(true);
+    let teacherId;
+    if (formData.teacherId.includes(",")) {
+      teacherId = formData.teacherId.split(",").map(id => Number(id.trim()));
+    } else {
+      teacherId = [Number(formData.teacherId)];
+    }
     try {
-      const res = await saveSubject(isEditMode, formData);
+      const res = await saveSubject(isEditMode, {
+        id: formData.id ? formData.id : null,
+        name: formData.name,
+        teacherId: teacherId ? teacherId : [],
+      });
       if (res.error) {
         console.error("Failed to save subject:", res.error);
         return;
@@ -101,7 +113,6 @@ export default function SubjectComponents() {
     }
   };
 
-  // ✅ Fungsi untuk Sorting
   const handleSort = (key) => {
     let direction = "asc";
     if (sortConfig.key === key && sortConfig.direction === "asc") {
@@ -110,7 +121,6 @@ export default function SubjectComponents() {
     setSortConfig({ key, direction });
   };
 
-  // ✅ Mengurutkan data berdasarkan sortConfig
   const sortedSubjects = [...subjects].sort((a, b) => {
     const valueA = a[sortConfig.key]?.toString().toLowerCase() || "";
     const valueB = b[sortConfig.key]?.toString().toLowerCase() || "";
@@ -120,66 +130,81 @@ export default function SubjectComponents() {
     return 0;
   });
 
-
   return (
     <div className="p-6">
       <h1 className="text-2xl font-bold mb-4">Subject Management</h1>
       <Button onPress={() => { setIsEditMode(false); setIsModalOpen(true); }} className="mb-4" color="primary">+ Add Subject</Button>
-      <Card>{loading ? <Spinner /> : (
-        <Table aria-labelledby="table subjects">
-          <TableHeader>
-            <TableColumn onClick={() => handleSort("id")} className="cursor-pointer">
-              ID {sortConfig.key === "id" ? (sortConfig.direction === "asc" ? "⬆️" : "⬇️") : ""}
-            </TableColumn>
-            <TableColumn onClick={() => handleSort("name")} className="cursor-pointer">
-              Subject {sortConfig.key === "name" ? (sortConfig.direction === "asc" ? "⬆️" : "⬇️") : ""}
-            </TableColumn>
-            <TableColumn onClick={() => handleSort("teacherId")} className="cursor-pointer">
-              Teacher {sortConfig.key === "teacherId" ? (sortConfig.direction === "asc" ? "⬆️" : "⬇️") : ""}
-            </TableColumn>
-            <TableColumn>Actions</TableColumn>
-          </TableHeader>
-          <TableBody emptyContent="No subject found">
-            {sortedSubjects.map((s, i) => (
-              <TableRow key={s.id}>
-                <TableCell>{i + 1}</TableCell>
-                <TableCell>{s.name}</TableCell>
-                <TableCell>
-                  {s.teacher ? (
-                    <div className="relative group bg-blue-500 text-white text-xs px-2 py-1 rounded-md cursor-pointer w-max">
-                      {s.teacher.fullname}
-                      {s.teacher.email && (
-                        <span className="absolute left-0 bottom-full mb-1 w-max bg-black text-white text-xs p-1 rounded opacity-0 group-hover:opacity-100 transition-opacity">
-                          {s.teacher.email}
-                        </span>
-                      )}
-                    </div>
-                  ) : (
-                    <span className="text-gray-400 italic">No teacher assigned</span>
-                  )}
-                </TableCell>
-                <TableCell>
-                  <Button disabled={loadingSubmit} onPress={() => handleEdit(s)} color="warning" className="mr-2">
-                    Edit
-                  </Button>
-                  <Button disabled={loadingSubmit} onPress={() => handleDelete(s.id)} color="danger">
-                    Delete
-                  </Button>
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      )}</Card>
+      <Card className="p-4">
+        {loading ? <Spinner /> : (
+          <Table aria-labelledby="table subjects">
+            <TableHeader>
+              <TableColumn onClick={() => handleSort("id")} className="cursor-pointer">
+                ID {sortConfig.key === "id" ? (sortConfig.direction === "asc" ? "⬆️" : "⬇️") : ""}
+              </TableColumn>
+              <TableColumn onClick={() => handleSort("name")} className="cursor-pointer">
+                Subject {sortConfig.key === "name" ? (sortConfig.direction === "asc" ? "⬆️" : "⬇️") : ""}
+              </TableColumn>
+              <TableColumn onClick={() => handleSort("teacherId")} className="cursor-pointer">
+                Teacher {sortConfig.key === "teacherId" ? (sortConfig.direction === "asc" ? "⬆️" : "⬇️") : ""}
+              </TableColumn>
+              <TableColumn>Actions</TableColumn>
+            </TableHeader>
+            <TableBody emptyContent="No subject found">
+              {sortedSubjects.map((s, i) => (
+                <TableRow key={s.id}>
+                  <TableCell>{i + 1}</TableCell>
+                  <TableCell>{s.name}</TableCell>
+                  <TableCell>
+                    {s.teachers?.length > 0 ? (
+                      <div className="flex flex-wrap gap-1">
+                        {s.teachers.map((teacher) => (
+                          <div
+                            key={teacher.id}
+                            className="relative group bg-blue-500 text-white text-xs px-2 py-1 rounded-md cursor-pointer"
+                          >
+                            {teacher.fullname}
+                            {/* Tooltip untuk Email */}
+                            <span className="absolute left-0 bottom-full mb-1 w-max bg-black text-white text-xs p-1 rounded opacity-0 group-hover:opacity-100 transition-opacity">
+                              {teacher.email}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <span className="text-gray-400 italic">No teachers assigned</span>
+                    )}
+                  </TableCell>
+                  <TableCell>
+                    <Button disabled={loadingSubmit} onPress={() => handleEdit(s)} color="warning" className="mr-2">
+                      Edit
+                    </Button>
+                    <Button disabled={loadingSubmit} onPress={() => handleDelete(s.id)} color="danger">
+                      Delete
+                    </Button>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        )}
+      </Card>
 
       <Modal backdrop="blur" isOpen={isModalOpen} onClose={() => { setFormData({ id: "", name: "", teacherId: "" }), setIsModalOpen(false) }} title={isEditMode ? "Edit Subject" : "Add Subject"}>
         <ModalContent>
           <ModalBody>
             <form onSubmit={handleSubmit} className="p-4 space-y-4">
               <Input label="Subject Name" type="text" name="name" isRequired value={formData.name} onChange={handleChange} required />
-              <Select label="Teacher" defaultSelectedKeys={[String(formData.teacherId)]} isRequired name="teacherId" onChange={handleChange}>
+              <Select
+                selectionMode="multiple"
+                label="Teacher"
+                isRequired={isEditMode}
+                name="teacherId"
+                value={isEditMode && [formData?.teachers?.map((teacher) => String(teacher.id))]}
+                defaultSelectedKeys={isEditMode && formData?.teachers?.map((teacher) => String(teacher.id))}
+                onChange={handleSelectChange}
+              >
                 {teachers.map((t) => (
-                  <SelectItem key={String(t.id)} value={String(t.id)}>{t.fullname}</SelectItem>
+                  <SelectItem key={t.id} value={String(t.id)}>{t.fullname}</SelectItem>
                 ))}
               </Select>
               <Button type="submit" disabled={loadingSubmit} color="success" className="w-full">

@@ -23,13 +23,7 @@ export default function StudentComponent() {
   const [isEditMode, setIsEditMode] = useState(false);
 
   useEffect(() => {
-    // Jika data sudah ada, hentikan loading dan return
-    if (classes.length > 0 && students.length > 0) {
-      setLoading(false);
-      return;
-    }
 
-    // Jika masih loading session, biarkan tetap loading
     if (status === "loading") {
       setLoading(true);
       return;
@@ -73,7 +67,7 @@ export default function StudentComponent() {
     fetchData();
 
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [session, status]);
+  }, [status]);
 
   // Handle perubahan input form
   const handleChange = (e) => {

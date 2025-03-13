@@ -9,6 +9,8 @@ import useClassStore from "@/store/useClassStore";
 import { fetchClasses } from "@/lib/fetch.class";
 import useTeacherStore from "@/store/useTeacherStore";
 import { deleteTeacherData, fetchTeachersData, saveTeacherData } from "@/lib/fetch.teacher";
+import useSubjectStore from "@/store/useSubjectStore";
+import { fetchSubjects } from "@/lib/fetch.subject";
 
 export default function StudentComponent() {
   const { data: session, status } = useSession();
@@ -16,24 +18,16 @@ export default function StudentComponent() {
   const { teachers, setTeachers, addTeacher, updatedTeacher, deleteTeacher } = useTeacherStore();
   const [loading, setLoading] = useState(true);
   const { classes, setClasses } = useClassStore();
+  const { subjects, setSubjects } = useSubjectStore();
   const [loadingSubmit, setLoadingSubmit] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [formData, setFormData] = useState([]);
+  const [formData, setFormData] = useState({ id: "", fullname: "", email: "", classId: "", password: "", classes: [], subjectId: "", subjects: [] });
   const [isEditMode, setIsEditMode] = useState(false);
-  const [message, setMessage] = useState("");
-  const [error, setError] = useState("");
   const [selectedTeacher, setSelectedTeacher] = useState(null);
   const [isModalViewOpen, setIsModalViewOpen] = useState(false);
   const { students, setStudents } = useStudentStore();
 
   useEffect(() => {
-    // Jika data sudah ada, hentikan loading dan return
-    if (teachers.length > 0 && classes.length > 0 && students.length > 0) {
-      setLoading(false);
-      return;
-    }
-
-    // Jika masih loading session, biarkan tetap loading
     if (status === "loading") {
       setLoading(true);
       return;
@@ -50,18 +44,20 @@ export default function StudentComponent() {
         setLoading(true); // Set loading sebelum fetch data
 
         // Fetch data secara paralel
-        const [resTeachers, resClasses, resStudents] = await Promise.all([
+        const [resTeachers, resClasses, resStudents, resSubjects] = await Promise.all([
           fetchTeachersData(),
           fetchClasses(),
-          fetchStudents()
+          fetchStudents(),
+          fetchSubjects()
         ]);
 
         // Validasi apakah hasilnya adalah array
-        if (!Array.isArray(resTeachers.data) || !Array.isArray(resClasses.data) || !Array.isArray(resStudents.data)) {
-          console.error("Data is not an array:", resTeachers, resClasses, resStudents);
+        if (!Array.isArray(resTeachers.data) || !Array.isArray(resClasses.data) || !Array.isArray(resSubjects.data) || !Array.isArray(resStudents.data)) {
+          console.error("Data is not an array:", resTeachers, resClasses, resStudents, resSubjects);
           setTeachers([]);
           setClasses([]);
           setStudents([]);
+          setSubjects([])
           return;
         }
 
@@ -69,12 +65,14 @@ export default function StudentComponent() {
         setTeachers(resTeachers.data);
         setClasses(resClasses.data);
         setStudents(resStudents.data);
+        setSubjects(resSubjects.data);
 
       } catch (error) {
         console.error("Failed to fetch data:", error);
         setTeachers([]);
         setClasses([]);
         setStudents([]);
+        setSubjects([])
 
       } finally {
         setLoading(false);
@@ -84,19 +82,8 @@ export default function StudentComponent() {
     fetchData();
 
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [session, status]);
+  }, [status]);
 
-
-  useEffect(() => {
-    if (message || error) {
-      const timer = setTimeout(() => {
-        setMessage("");
-        setError("");
-      }, 3000);
-
-      return () => clearTimeout(timer);
-    }
-  }, [message, error]);
 
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -105,21 +92,35 @@ export default function StudentComponent() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoadingSubmit(true);
-    setError("");
-    setMessage("");
-
+    let classId;
+    let subjectId;
+    if (formData.classId.includes(",")) {
+      classId = formData.classId.split(",").map(id => Number(id.trim()));
+    } else {
+      classId = [Number(formData.classId)];
+    }
+    if (formData.subjectId.includes(",")) {
+      subjectId = formData.subjectId.split(",").map(id => Number(id.trim()));
+    } else {
+      subjectId = [Number(formData.subjectId)];
+    }
     try {
-      const res = await saveTeacherData(isEditMode, formData);
+      const res = await saveTeacherData(isEditMode, {
+        id: formData.id || null,
+        fullname: formData.fullname,
+        email: formData.email,
+        classId,
+        subjectId,
+        password: formData.password
+      });
       const data = await res.data;
 
       if (res.error) {
-        setError(res.message);
         console.error("Failed to save teachers:", res.error);
         return;
       }
 
       if (!res.data) {
-        setError("Failed to save teacher");
         return;
       }
       if (isEditMode) {
@@ -127,11 +128,8 @@ export default function StudentComponent() {
       } else {
         addTeacher(data);
       }
-
-      setMessage(res.message);
     } catch (error) {
       console.error("Failed to save teacher:", error);
-      setError("Failed to save teacher, rolling back!");
     } finally {
       setLoadingSubmit(false);
       setIsModalOpen(false);
@@ -139,42 +137,42 @@ export default function StudentComponent() {
     }
   };
 
-
-  const handleEdit = (stdn) => {
-
-    setFormData({
-      id: stdn.id || "",
-      fullname: stdn.fullname || "",
-      email: stdn.email || "",
-      classId: String(stdn.classId) || "",
-      password: stdn.password || ''
-    });
-
+  const handleEdit = (tch) => {
     setIsEditMode(true);
+    setFormData({
+      ...tch,
+      classId: tch?.classes?.map((cls) => cls.id).join(","),
+      subjectId: tch?.subjects?.map((sub) => sub.id).join(",")
+    });
     setIsModalOpen(true);
   };
 
-
+  const handleSelectChange = (selectedValues) => {
+    setFormData((prev) => ({
+      ...prev,
+      classId: selectedValues.target.value
+    }));
+  };
+  const handleSubjectSelectChange = (selectedValues) => {
+    setFormData((prev) => ({
+      ...prev,
+      subjectId: selectedValues.target.value
+    }));
+  };
 
   const handleDelete = async (id) => {
     if (!confirm("Are you sure you want to delete this teacher?")) return;
-    setMessage('');
-    setError('');
     deleteTeacher(id);
-    setMessage('Deleted successfully');
 
     try {
       const deleteData = await deleteTeacherData(id);
       if (!deleteData.success) {
         alert("Failed to delete teacher");
-        setError(deleteData.message);
         return;
       }
     } catch (error) {
       console.error(error);
-      alert("Failed to delete student, rolling back!");
-      const res = await fetchTeachersData();
-      setTeachers(res.data);
+      alert("Failed to delete student");
     }
   };
 
@@ -182,27 +180,9 @@ export default function StudentComponent() {
     setSelectedTeacher(teacher);
     setIsModalViewOpen(true);
   }
-
   return (
     <div className="p-6">
       <h1 className="text-2xl font-bold mb-4">Teachers Management</h1>
-      {
-        message && (
-          <div className="p-4 mb-4 text-sm text-green-700 bg-green-100 rounded-lg dark:bg-green-200 dark:text-green-800"
-            role="alert">
-            <span className="font-medium">{message}</span>
-          </div>
-        )
-      }
-
-      {
-        error && (
-          <div className="p-4 mb-4 text-sm text-red-700 bg-red-100 rounded-lg dark:bg-red-200 dark:text-red-800"
-            role="alert">
-            <span className="font-medium">Error!</span> {error}
-          </div>
-        )
-      }
       <Button onPress={() => { setIsEditMode(false), setIsModalOpen(true) }} color="primary" className="mb-4">+ Add Teachers</Button>
       <Card className="p-4">
         {
@@ -242,12 +222,19 @@ export default function StudentComponent() {
 
                       {/* Class Name dengan Badge */}
                       <TableCell>
-                        {classes.find((c) => c.id === t.classId)?.name ? (
-                          <span className="bg-green-600 text-white text-xs px-2 py-1 rounded-md">
-                            {classes.find((c) => c.id === t.classId)?.name}
-                          </span>
+                        {t.classes?.length > 0 ? (
+                          <div className="flex flex-wrap gap-1">
+                            {t.classes.map((cls, i) => (
+                              <div
+                                key={i}
+                                className="relative group bg-blue-500 text-white text-xs px-2 py-1 rounded-md cursor-pointer"
+                              >
+                                {cls.name}
+                              </div>
+                            ))}
+                          </div>
                         ) : (
-                          <span className="text-gray-400 italic">No class assigned</span>
+                          <span className="text-gray-400 italic">No teachers assigned</span>
                         )}
                       </TableCell>
 
@@ -284,16 +271,15 @@ export default function StudentComponent() {
         }
       </Card>
 
-      <Modal backdrop="blur" size="5xl" isOpen={isModalViewOpen} onClose={() => setIsModalViewOpen(false)} title="Teacher Detail">
+      <Modal backdrop="blur" size="full" isOpen={isModalViewOpen} onClose={() => setIsModalViewOpen(false)} title="Teacher Detail">
         <ModalContent>
           <ModalBody>
             <Table className="px-4 py-6" aria-labelledby="table-data">
               <TableHeader>
                 <TableColumn>Nama</TableColumn>
                 <TableColumn>Email</TableColumn>
-                <TableColumn>Mengajar di Kelas</TableColumn>
-                <TableColumn>Total Siswa di Kelas</TableColumn>
-                <TableColumn>Nama Siswa</TableColumn>
+                <TableColumn>Mengajar di Kelas & Total siswa di kelas</TableColumn>
+                <TableColumn>Nama Seluruh Siswa Yang Ada Di Kelas</TableColumn>
                 <TableColumn>Daftar Mata Pelajaran</TableColumn>
               </TableHeader>
 
@@ -301,12 +287,15 @@ export default function StudentComponent() {
                 {selectedTeacher && (
                   <TableRow>
                     {/* Nama Guru dengan Avatar */}
-                    <TableCell className="flex items-center space-x-3">
-                      <div className="w-8 h-8 flex items-center justify-center bg-blue-600 text-white rounded-full text-sm font-bold uppercase">
-                        {selectedTeacher.fullname?.slice(0, 1)}
+                    <TableCell>
+                      <div className="flex w-full items-center justify-center space-x-3 text-center">
+                        <div className="w-8 h-8 flex-shrink-0 flex items-center justify-center bg-blue-600 text-white rounded-full text-sm font-bold uppercase">
+                          {selectedTeacher.fullname?.slice(0, 1)}
+                        </div>
+                        <span className="text-white whitespace-nowrap">{selectedTeacher.fullname}</span>
                       </div>
-                      <span className="text-white">{selectedTeacher.fullname}</span>
                     </TableCell>
+
 
                     {/* Email dengan Tooltip */}
                     <TableCell className="relative group cursor-pointer text-blue-300">
@@ -316,38 +305,54 @@ export default function StudentComponent() {
                       </span>
                     </TableCell>
 
-                    {/* Nama Kelas dengan Badge */}
-                    <TableCell>
-                      {classes.find((c) => c.id === selectedTeacher.classId)?.name ? (
-                        <span className="bg-green-600 text-white text-xs px-2 py-1 rounded-md">
-                          {classes.find((c) => c.id === selectedTeacher.classId)?.name}
-                        </span>
-                      ) : (
-                        <span className="text-gray-400 italic">No class assigned</span>
-                      )}
-                    </TableCell>
-
-                    {/* Total Siswa di Kelas */}
                     <TableCell className="text-center">
-                      {classes.find((c) => c.id === selectedTeacher.classId)?._count?.students ?? 0}
+                      {selectedTeacher.classes?.length > 0 ? (
+                        <div className="flex flex-wrap gap-1">
+                          {selectedTeacher.classes.map((cls, i) => {
+                            const totalStudents = students.filter((s) => s.classId === cls.id).length;
+                            return (
+                              <div
+                                key={i}
+                                className="relative group bg-blue-500 text-white text-xs px-2 py-1 rounded-md cursor-pointer"
+                              >
+                                {cls.name} ({totalStudents})
+                              </div>
+                            );
+                          })}
+                        </div>
+                      ) : (
+                        <span className="text-gray-400 italic">No student assigned</span>
+                      )}
                     </TableCell>
 
                     {/* Daftar Nama Siswa */}
                     <TableCell>
-                      {students.filter((s) => s.classId === selectedTeacher.classId).length > 0 ? (
-                        <ul className="list-disc pl-4 text-sm text-gray-300">
-                          {students
-                            .filter((s) => s.classId === selectedTeacher.classId)
-                            .map((s) => (
-                              <li key={s.id}>{s.fullname}</li>
-                            ))}
-                        </ul>
-                      ) : (
-                        <span className="text-gray-400 italic">No students</span>
-                      )}
+                      <div className="grid grid-cols-2 gap-2">
+                        {students
+                          ?.filter((s) => selectedTeacher.classes.some((c) => c.id === s.classId))
+                          ?.map((s, i, arr) => {
+                            const isLastOdd = arr.length % 2 !== 0 && i === arr.length - 1;
+                            return (
+                              <div
+                                key={i}
+                                className={`flex items-center space-x-3 bg-gray-800 p-2 rounded-lg ${isLastOdd ? "col-span-2 justify-center" : ""
+                                  }`}
+                              >
+                                {/* Avatar */}
+                                <div className="w-8 h-8 flex-shrink-0 flex items-center justify-center bg-blue-600 text-white rounded-full text-sm font-bold uppercase">
+                                  {s.fullname?.slice(0, 1)}
+                                </div>
+                                {/* Nama Siswa */}
+                                <span className="text-white">{s.fullname}</span>
+                              </div>
+                            );
+                          })}
+                      </div>
                     </TableCell>
 
-                    {/* Daftar Mata Pelajaran dengan Badge */}
+
+
+
                     <TableCell>
                       {selectedTeacher.subjects.length > 0 ? (
                         <div className="flex flex-wrap gap-1">
@@ -408,14 +413,31 @@ export default function StudentComponent() {
               }
               <Select
                 label="Class"
-                value={[formData.classId]}
-                onChange={handleChange}
+                value={isEditMode && [formData?.classes?.map((className) => String(className.id))]}
+                defaultSelectedKeys={isEditMode && formData?.classes?.map((cls) => String(cls.id))}
+                onChange={handleSelectChange}
                 name="classId"
-                defaultSelectedKeys={[formData.classId]}
                 isRequired
+                selectionMode="multiple"
               >
                 {classes.length > 0 &&
                   classes.map((c, i) => (
+                    <SelectItem key={c.id} value={String(c.id)}>{c.name}</SelectItem>
+                  ))
+                }
+              </Select>
+
+              <Select
+                label="Subject"
+                value={isEditMode && [formData?.subjects?.map((sub) => String(sub.id))]}
+                defaultSelectedKeys={isEditMode && formData?.subjects?.map((sub) => String(sub.id))}
+                onChange={handleSubjectSelectChange}
+                name="subjectId"
+                isRequired
+                selectionMode="multiple"
+              >
+                {subjects.length > 0 &&
+                  subjects.map((c, i) => (
                     <SelectItem key={c.id} value={String(c.id)}>{c.name}</SelectItem>
                   ))
                 }
