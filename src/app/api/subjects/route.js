@@ -5,7 +5,7 @@ import { AddSubjectSchema } from "@/lib/zod";
 export async function GET() {
   try {
     const subjects = await prisma.subject.findMany({
-      include: { teacher: true }
+      include: { teachers: true }
     });
     return NextResponse.json(subjects, { status: 200 });
   } catch (error) {
@@ -28,9 +28,11 @@ export async function POST(req) {
     const newSubject = await prisma.subject.create({
       data: {
         name: validation.data.name,
-        teacherId: validation.data.teacherId ? Number(validation.data.teacherId) : null
+        teachers: {
+          connect: validation.data.teacherId.map((teacherId) => ({ id: Number(teacherId) }))
+        }
       },
-      include: { teacher: true }
+      include: { teachers: true }
     });
 
     return NextResponse.json(newSubject, { status: 201 });

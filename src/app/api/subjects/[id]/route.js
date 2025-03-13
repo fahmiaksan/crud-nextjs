@@ -12,20 +12,21 @@ export async function PUT(req) {
       );
     }
 
-    const { id, name, teacherId } = validation.data;
+    const { id, name, teacherId } = validation.data
 
     const existingSubject = await prisma.subject.findUnique({ where: { id: Number(id) } });
     if (!existingSubject) {
       return NextResponse.json({ error: "Subject not found" }, { status: 404 });
     }
-
     const updatedSubject = await prisma.subject.update({
       where: { id: Number(id) },
       data: {
-        ...(name && { name }),
-        ...(teacherId !== undefined && { teacherId: teacherId ? Number(teacherId) : null }),
+        name,
+        teachers: teacherId && teacherId.length > 0
+          ? { set: teacherId.map((id) => ({ id: Number(id) })) }
+          : { set: [] },
       },
-      include: { teacher: true }
+      include: { teachers: true }
     });
 
     return NextResponse.json(updatedSubject, { status: 200, message: "Subject updated successfully" });
