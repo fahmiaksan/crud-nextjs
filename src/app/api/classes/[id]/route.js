@@ -17,11 +17,10 @@ export async function DELETE(req, { params }) {
 // PUT: Update nama kelas
 export async function PUT(req, { params }) {
   try {
-    const { id } = params;
+    const { id } = await params;
     if (!id) return NextResponse.json({ error: "Class ID is required" }, { status: 400 });
 
     const body = await req.json();
-
     const validation = UpdateClassSchema.safeParse(body);
     if (!validation.success) {
       return NextResponse.json(
@@ -30,10 +29,23 @@ export async function PUT(req, { params }) {
       );
     }
 
+    const { name, teacherId } = validation.data;
+
     const updatedClass = await prisma.class.update({
       where: { id: Number(id) },
-      data: { name: validation.data.name },
+      data: {
+        name,
+        teachers: {
+          set: teacherId && teacherId.length > 0
+            ? teacherId.map((id) => ({ id: Number(id) }))
+            : [],
+        },
+      },
+      include: {
+        teachers: true
+      }
     });
+
 
     return NextResponse.json(updatedClass, { status: 200 });
   } catch (error) {

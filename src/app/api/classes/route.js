@@ -8,7 +8,7 @@ export async function GET() {
     const classes = await prisma.class.findMany({
       include: {
         _count: { select: { students: true } },
-        teachers: { select: { id: true, fullname: true, email: true } },
+        teachers: true,
       },
     });
 
@@ -25,6 +25,7 @@ export async function POST(req) {
   try {
     const body = await req.json();
 
+
     const validation = AddClassSchema.safeParse(body);
     if (!validation.success) {
       return NextResponse.json(
@@ -32,9 +33,13 @@ export async function POST(req) {
         { status: 400 }
       );
     }
-
+    const { name, teacherId } = validation.data
     const newClass = await prisma.class.create({
-      data: { name: validation.data.name },
+      data: {
+        name,
+        teachers: { connect: teacherId.map((teacherId) => ({ id: Number(teacherId) })) },
+      },
+      include: { teachers: true },
     });
 
     return NextResponse.json(newClass, { status: 201 });
