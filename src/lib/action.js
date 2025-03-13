@@ -3,7 +3,7 @@ import bcrypt from "bcryptjs";
 import { RegisterSchema } from "./zod";
 import prisma from "./prisma";
 import { redirect } from "next/navigation"
-import { auth, signIn, signOut } from "@/auth";
+import { auth, signIn } from "@/auth";
 import { AuthError } from "next-auth";
 import { SignInSchema } from "@/lib/zod";
 
@@ -71,17 +71,16 @@ export async function SignInCredentials(prevState, formData) {
       password,
       redirectTo: '/dashboard'
     });
-    const session = await auth();
   } catch (error) {
     if (error instanceof AuthError) {
       switch (error.type) {
         case 'CredentialsSignin':
           return {
-            message: "Invalid credentials!"
+            message: "Email or password is incorrect!"
           };
         default:
           return {
-            message: "Something went wrong!"
+            message: "Something went wrong! please try again"
           };
       }
     }
