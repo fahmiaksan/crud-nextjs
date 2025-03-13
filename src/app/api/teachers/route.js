@@ -1,11 +1,12 @@
 import prisma from "@/lib/prisma";
 import { NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
+import { AddTeacherSchema } from "@/lib/zod";
 
 export async function GET() {
   try {
     const teachers = await prisma.teacher.findMany({
-      include: { class: true, subjects: true },
+      include: { classes: true, subjects: true },
     });
     return NextResponse.json(teachers, { status: 200 });
   } catch (error) {
@@ -17,13 +18,16 @@ export async function GET() {
 // 📌 Tambah teacher baru
 export async function POST(req) {
   try {
-    const { fullname, email, password, classId } = await req.json();
-    if (!fullname || !email || !password) {
-      return NextResponse.json({ message: "All fields are required" }, { status: 400 });
+    const body = await req.json();
+    const validationSchema = AddTeacherSchema.safeParse(body);
+    if (!validationSchema.success) {
+      return NextResponse.json({ error: validationSchema.error.errors.map(err => err.message) }, { status: 400 });
     }
 
+    const { email, fullname, password, classId, subjectId } = validationSchema.data;
+
     const validation = await prisma.teacher.findUnique({ where: { email } });
-    if (validation) {  // Hanya jika email sudah ada, munculkan error
+    if (validation) {
       return NextResponse.json({ message: "Email already registered" }, { status: 400 });
     }
 
@@ -39,9 +43,10 @@ export async function POST(req) {
         fullname,
         email,
         password: hashedPassword,
-        classId: classId ? Number(classId) : null
+        classes: { connect: classId.map((classId) => ({ id: Number(classId) })) },
+        subjects: { connect: subjectId.map((subjectId) => ({ id: Number(subjectId) })) }
       },
-      include: { class: true },
+      include: { classes: true, subjects: true },
     });
 
 
