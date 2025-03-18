@@ -98,6 +98,13 @@ async function main() {
     ],
   });
 
+  await prisma.user.create({
+    data: {
+      name: "boo",
+      value: 100
+    }
+  })
+
   console.log("✅ Seeding complete!");
 }
 

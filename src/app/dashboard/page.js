@@ -18,7 +18,6 @@ export default function Dashboard() {
   const { status } = useSession();
 
   useEffect(() => {
-    if (status === "loading") return;
 
     const fetchDashboardData = async () => {
       try {

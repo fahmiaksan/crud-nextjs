@@ -28,7 +28,7 @@ export default function ClassComponent() {
     }
 
     // Jika tidak ada session atau role bukan teacher, redirect
-    if (!session || session.user.role !== "teacher") {
+    if (!session) {
       router.push("/dashboard");
       return;
     }
